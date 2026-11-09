@@ -26,7 +26,8 @@ En el repositorio: **Settings → Secrets and variables → Actions → New repo
 
 ## Primera prueba
 **Actions → Sincronizar asistencias ZLink -> Odoo → Run workflow** con *Simulación = 1*: lee y empareja, pero no escribe.
-Revisar el registro; si está bien, volver a correr con *Simulación = 0*. Desde ahí corre solo cada 10 minutos.
+Revisar el registro; si está bien, activar la escritura real: **Settings → Secrets and variables → Actions → pestaña Variables → New repository variable** `DRY_RUN` = `0`.
+Hasta entonces la corrida automática de cada 10 minutos solo simula (no escribe en Odoo).
 
 Para pausarlo: **Actions → el workflow → ⋯ → Disable workflow**.
 
