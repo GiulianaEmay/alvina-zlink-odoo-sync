@@ -28,9 +28,15 @@ class TestPairing(unittest.TestCase):
         self.assertEqual([(p[1], p[3]) for p in pairs], [("1", "3")])
 
     def test_open_and_orphan(self):
-        pairs, open_, orph = sync.pair_punches(self.pts((1, "2026-11-07 08:00:00"), (2, "2026-11-09 08:00:00")))
+        pairs, open_, orph = sync.pair_punches(self.pts((1, "2026-11-07 08:00:00"), (2, "2026-11-08 08:00:00")))
         self.assertEqual(pairs, [])
         self.assertEqual(open_[1], "2")
+        self.assertEqual(orph[0][1], "1")
+
+    def test_forgotten_checkout_is_not_paired(self):
+        pairs, open_, orph = sync.pair_punches(self.pts(
+            (1, "2026-11-06 15:36:00"), (2, "2026-11-07 06:25:00"), (3, "2026-11-07 16:08:00")))
+        self.assertEqual([(p[1], p[3]) for p in pairs], [("2", "3")])
         self.assertEqual(orph[0][1], "1")
 
     def test_codes(self):

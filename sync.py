@@ -10,7 +10,7 @@ Reglas:
   (identification_id), PIN o credencial (barcode) del empleado en Odoo,
   ignorando ceros a la izquierda y caracteres no numéricos.
 - Emparejamiento: las marcas de cada persona se ordenan; una marca abre la
-  jornada y la siguiente la cierra si ocurre dentro de MAX_SHIFT_HOURS. Así el
+  jornada y la siguiente la cierra si ocurre dentro de MAX_SHIFT_HOURS (13 h). Así el
   turno noche (7 pm -> 6 am) queda como UNA sola asistencia.
 - Marcas repetidas en menos de DEDUP_MINUTES se consideran una sola.
 - Idempotente: una asistencia se identifica por empleado + hora exacta de
@@ -22,7 +22,7 @@ Variables de entorno (en GitHub: Settings > Secrets and variables > Actions):
   ZLINK_APP_KEY, ZLINK_APP_SECRET            credenciales de la app de ZLink
   ODOO_URL, ODOO_DB, ODOO_API_KEY            Odoo 19 (API JSON-2)
 Opcionales:
-  LOOKBACK_DAYS (3)  MAX_SHIFT_HOURS (16)  DEDUP_MINUTES (3)  DRY_RUN (0/1)
+  LOOKBACK_DAYS (3)  MAX_SHIFT_HOURS (13)  DEDUP_MINUTES (3)  DRY_RUN (0/1)
   ZLINK_TZ_DEFAULT (-05:00)
 """
 import json
@@ -64,7 +64,7 @@ def env(name, default=None, required=False):
 
 
 LOOKBACK_DAYS = int(env("LOOKBACK_DAYS", "3"))
-MAX_SHIFT = timedelta(hours=float(env("MAX_SHIFT_HOURS", "16")))
+MAX_SHIFT = timedelta(hours=float(env("MAX_SHIFT_HOURS", "13")))
 DEDUP = timedelta(minutes=float(env("DEDUP_MINUTES", "3")))
 DRY_RUN = env("DRY_RUN", "0") == "1"
 TZ_DEFAULT = env("ZLINK_TZ_DEFAULT", "-05:00")
@@ -209,7 +209,11 @@ def main():
         pairs, open_, orphans = pair_punches(pts)
         items = [(i, iid, o, oid) for i, iid, o, oid in pairs]
         if open_:
-            items.append((open_[0], open_[1], None, None))
+            # Solo queda "abierta" una entrada reciente; una antigua sin salida es un olvido.
+            if datetime.utcnow() - open_[0] <= MAX_SHIFT:
+                items.append((open_[0], open_[1], None, None))
+            elif open_[1] != "odoo-abierta":
+                orphans.append(open_)
         for in_dt, in_id, out_dt, out_id in items:  # noqa
             existing = od.call("hr.attendance", "search_read",
                                domain=[["employee_id", "=", emp_id], ["check_in", "=", fmt(in_dt)]],
@@ -239,7 +243,9 @@ def main():
             except RuntimeError as ex:
                 errors.append(f"empleado {emp_id} entrada {fmt(in_dt)} UTC: {ex}")
         for dt, pid in orphans:
-            errors.append(f"empleado {emp_id}: marca sin pareja {fmt(dt)} UTC (id {pid})")
+            if pid == "odoo-abierta":
+                continue
+            errors.append(f"{names.get(emp_id, emp_id)}: marca sin pareja {dt + LOCAL_OFFSET:%d/%m %H:%M} (falta entrada o salida)")
 
     if preview:
         print("Detalle (hora Lima):")

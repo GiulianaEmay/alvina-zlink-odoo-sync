@@ -11,7 +11,7 @@ IPs fijas registradas en su lista blanca (GitHub Actions cambia de IP en cada co
 1. Pide un token a la Open API de ZLink con la app propia «Odoo Asistencias Alvina» (permisos solo de lectura).
 2. Lee las marcas de los últimos 3 días.
 3. Encuentra al empleado en Odoo por **DNI** (también PIN o credencial), ignorando ceros a la izquierda.
-4. Une cada entrada con la siguiente marca dentro de 16 h → **el turno noche (7 pm → 6 am) es una sola asistencia**.
+4. Une cada entrada con la siguiente marca dentro de 13 h → **el turno noche (7 pm → 6 am) es una sola asistencia**.
    Marcas repetidas en menos de 3 min cuentan como una.
 5. Crea la asistencia (modo «Técnico») o completa la salida de una que quedó abierta. Si ya existe, no la duplica.
 6. El log lista las marcas de personas sin empleado en Odoo para que RR. HH. corrija el DNI.
@@ -30,7 +30,7 @@ IPs fijas registradas en su lista blanca (GitHub Actions cambia de IP en cada co
 Resultados de cada corrida: `logs\sync.log`. Para detenerlo: `windows\quitar_tarea.bat`.
 
 ## Parámetros opcionales (en config.env)
-`LOOKBACK_DAYS` (3), `MAX_SHIFT_HOURS` (16), `DEDUP_MINUTES` (3), `ZLINK_TZ_DEFAULT` (-05:00), `DRY_RUN` (0/1).
+`LOOKBACK_DAYS` (3), `MAX_SHIFT_HOURS` (13), `DEDUP_MINUTES` (3), `ZLINK_TZ_DEFAULT` (-05:00), `DRY_RUN` (0/1).
 
 ## Pruebas
 `python -m unittest -v test_sync` (también corren en GitHub Actions con *Run workflow*).
