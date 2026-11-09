@@ -68,6 +68,7 @@ MAX_SHIFT = timedelta(hours=float(env("MAX_SHIFT_HOURS", "13")))
 DEDUP = timedelta(minutes=float(env("DEDUP_MINUTES", "3")))
 DRY_RUN = env("DRY_RUN", "0") == "1"
 TZ_DEFAULT = env("ZLINK_TZ_DEFAULT", "-05:00")
+SYNC_FROM = env("SYNC_FROM", "")  # AAAA-MM-DD: ignora marcas anteriores a esa fecha (hora Lima)
 _m = re.fullmatch(r"([+-])(\d{1,2}):?(\d{2})", TZ_DEFAULT)
 LOCAL_OFFSET = timedelta(hours=int(_m.group(2)), minutes=int(_m.group(3))) * (1 if _m.group(1) == "+" else -1)
 
@@ -171,7 +172,12 @@ def main():
     od = Odoo(env("ODOO_URL", required=True), env("ODOO_DB", required=True), env("ODOO_API_KEY", required=True))
 
     today = date.today()
-    raw = zl.punches(today - timedelta(days=LOOKBACK_DAYS), today)
+    start = today - timedelta(days=LOOKBACK_DAYS)
+    if SYNC_FROM:
+        start = max(start, date.fromisoformat(SYNC_FROM))
+    raw = zl.punches(start, today + timedelta(days=1))
+    if SYNC_FROM:
+        raw = [p for p in raw if p.get("punchTime", "")[:10] >= SYNC_FROM]
     raw = [p for p in raw if (p.get("status") or "ACTIVE") != "DELETE"]
     print(f"Marcas leídas de ZLink: {len(raw)}")
 
@@ -210,7 +216,7 @@ def main():
         items = [(i, iid, o, oid) for i, iid, o, oid in pairs]
         if open_:
             # Solo queda "abierta" una entrada reciente; una antigua sin salida es un olvido.
-            if datetime.utcnow() - open_[0] <= MAX_SHIFT:
+            if datetime.now(timezone.utc).replace(tzinfo=None) - open_[0] <= MAX_SHIFT:
                 items.append((open_[0], open_[1], None, None))
             elif open_[1] != "odoo-abierta":
                 orphans.append(open_)
