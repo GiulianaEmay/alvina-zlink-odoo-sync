@@ -1,0 +1,41 @@
+name: Sincronizar asistencias ZLink -> Odoo
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # cada 10 minutos (GitHub puede demorar unos minutos)
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Simulación (no escribe en Odoo)"
+        type: choice
+        options: ["1", "0"]
+        default: "1"
+      lookback_days:
+        description: "Días hacia atrás a revisar"
+        default: "3"
+
+concurrency:
+  group: zlink-odoo-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Pruebas
+        run: python -m unittest -v test_sync
+      - name: Sincronizar
+        env:
+          ZLINK_APP_KEY: ${{ secrets.ZLINK_APP_KEY }}
+          ZLINK_APP_SECRET: ${{ secrets.ZLINK_APP_SECRET }}
+          ODOO_URL: ${{ secrets.ODOO_URL }}
+          ODOO_DB: ${{ secrets.ODOO_DB }}
+          ODOO_API_KEY: ${{ secrets.ODOO_API_KEY }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || vars.DRY_RUN || '0' }}
+          LOOKBACK_DAYS: ${{ github.event_name == 'workflow_dispatch' && inputs.lookback_days || '3' }}
+        run: python sync.py
