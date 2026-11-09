@@ -1,8 +1,6 @@
 name: Sincronizar asistencias ZLink -> Odoo
 
 on:
-  schedule:
-    - cron: "*/10 * * * *"   # cada 10 minutos (GitHub puede demorar unos minutos)
   workflow_dispatch:
     inputs:
       dry_run:

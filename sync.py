@@ -35,6 +35,25 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 
 ZLINK_BASE = "https://zlink-open.minervaiot.com/open-apis"
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+def load_config_file():
+    """Carga config.env (CLAVE=valor por línea) junto a este archivo, si existe.
+    Pensado para la PC con Windows; las variables de entorno ya definidas mandan."""
+    path = os.path.join(HERE, "config.env")
+    if not os.path.exists(path):
+        return
+    with open(path, encoding="utf-8-sig") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+
+
+load_config_file()
 
 
 def env(name, default=None, required=False):
@@ -226,4 +245,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    print(f"=== Corrida {datetime.now():%Y-%m-%d %H:%M:%S} ===")
+    try:
+        main()
+    except Exception as exc:  # se registra en el log y se sale con error
+        print(f"ERROR: {exc}")
+        sys.exit(1)
