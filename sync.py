@@ -68,6 +68,8 @@ MAX_SHIFT = timedelta(hours=float(env("MAX_SHIFT_HOURS", "16")))
 DEDUP = timedelta(minutes=float(env("DEDUP_MINUTES", "3")))
 DRY_RUN = env("DRY_RUN", "0") == "1"
 TZ_DEFAULT = env("ZLINK_TZ_DEFAULT", "-05:00")
+_m = re.fullmatch(r"([+-])(\d{1,2}):?(\d{2})", TZ_DEFAULT)
+LOCAL_OFFSET = timedelta(hours=int(_m.group(2)), minutes=int(_m.group(3))) * (1 if _m.group(1) == "+" else -1)
 
 
 # ---------------------------------------------------------------- HTTP
@@ -175,6 +177,7 @@ def main():
 
     emps = od.call("hr.employee", "search_read", domain=[], fields=["name", "identification_id", "pin", "barcode"],
                    context={"active_test": True})
+    names = {e["id"]: e["name"] for e in emps}
     by_code = {}
     for e in emps:
         for f in ("identification_id", "pin", "barcode"):
@@ -192,7 +195,7 @@ def main():
         per_emp[next(iter(ids))].append((parse_punch(p), str(p["id"])))
 
     created = updated = skipped = 0
-    errors = []
+    errors, preview = [], []
     for emp_id, pts in per_emp.items():
         # Si en Odoo quedó una jornada abierta de una corrida anterior (p. ej. entrada
         # 7 pm de un día fuera de la ventana), se incluye para que la salida la cierre.
@@ -212,6 +215,11 @@ def main():
                                domain=[["employee_id", "=", emp_id], ["check_in", "=", fmt(in_dt)]],
                                fields=["id", "check_out", "in_mode"], limit=1)
             vals = {"employee_id": emp_id, "check_in": fmt(in_dt), "in_mode": "technical"}
+            if DRY_RUN:
+                lin = in_dt + LOCAL_OFFSET
+                lout = (out_dt + LOCAL_OFFSET).strftime("%d/%m %H:%M") if out_dt else "(abierta)"
+                hrs = f"{(out_dt - in_dt).total_seconds() / 3600:.1f} h" if out_dt else ""
+                preview.append(f"  {names.get(emp_id, emp_id)[:34]:34} {lin:%d/%m %H:%M} -> {lout:12} {hrs}")
             if out_dt:
                 vals.update(check_out=fmt(out_dt), out_mode="technical")
             try:
@@ -233,6 +241,9 @@ def main():
         for dt, pid in orphans:
             errors.append(f"empleado {emp_id}: marca sin pareja {fmt(dt)} UTC (id {pid})")
 
+    if preview:
+        print("Detalle (hora Lima):")
+        print("\n".join(sorted(preview)))
     print(f"Asistencias creadas: {created} · actualizadas: {updated} · sin cambios: {skipped}" + (" [SIMULACIÓN]" if DRY_RUN else ""))
     if unknown:
         print("Marcas de personas sin empleado único en Odoo (revisar DNI):")
